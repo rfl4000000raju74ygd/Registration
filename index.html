@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Registration 🖇️</title>
+
+  <!-- Google Font (kept) -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg:#000;
+      --accent:#00ffff;
+      --danger:#ff3b3b;
+      --muted:rgba(255,255,255,0.05);
+    }
+    html,body{height:100%;margin:0;padding:0;background:var(--bg);font-family:Orbitron,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;}
+    iframe{width:100%;height:100%;border:0;display:block;}
+
+    /* Prediction box */
+    #predictionBox{
+      position:fixed;
+      bottom:30px;
+      right:30px;
+      width:220px;
+      max-width:calc(100% - 40px);
+      background:rgba(5,10,20,0.98);
+      backdrop-filter: blur(10px);
+      border-radius:16px;
+      padding:16px;
+      color:#fff;
+      text-align:center;
+      border:1px solid var(--accent);
+      box-shadow:0 6px 30px rgba(0,255,255,0.12);
+      z-index:99999;
+      user-select:none;
+      touch-action:none; /* pointer events handling */
+    }
+
+    .main-title{font-size:13px;color:var(--accent);font-weight:900;margin-bottom:12px;text-shadow:0 0 8px var(--accent);}
+
+    #loginForm input{
+      width:100%;padding:10px;margin-bottom:10px;
+      background:var(--muted);border:1px solid #333;color:var(--accent);
+      border-radius:8px;text-align:center;outline:none;
+    }
+    #loginForm button{
+      width:100%;padding:10px;background:var(--accent);color:#000;border:none;font-weight:900;border-radius:8px;cursor:pointer;
+    }
+
+    #predictionUI{display:none;}
+    #bsText{font-size:40px;font-weight:900;margin:12px 0;text-shadow:0 0 14px currentColor;}
+
+    .timer-wrap{
+      background:rgba(255,204,0,0.12);
+      padding:8px;border-radius:10px;margin-top:8px;border:1px solid rgba(255,204,0,0.14);
+    }
+    #timerDisplay{font-size:14px;color:#ffcc00;font-weight:900;}
+
+    .loader{
+      position:absolute;inset:0;background:rgba(0,0,0,0.7);border-radius:16px;display:none;align-items:center;justify-content:center;z-index:1000;
+    }
+    .spinner{width:28px;height:28px;border:3px solid #111;border-top:3px solid var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+    @keyframes spin{100%{transform:rotate(360deg)}}
+
+    /* Small responsive */
+    @media (max-width:420px){
+      #predictionBox{left:12px;right:12px;bottom:20px;width:auto;}
+      #bsText{font-size:32px;}
+    }
+  </style>
+</head>
+<body>
+
+  <!-- External iframe: sandboxed and lazy-loaded.
+       NOTE: sandbox limits what the framed site can do; add only the flags you trust.
+       If you control the target, consider serving it from the same domain or use postMessage with origin checks. -->
+  <iframe
+    src="https://hgzy.bet/#/register?invitationCode=626361698167"
+    title="Registration 🖇️ iframe"
+    loading="lazy"
+    referrerpolicy="no-referrer"
+    sandbox="allow-forms allow-scripts allow-same-origin"
+  ></iframe>
+
+  <div id="predictionBox" role="dialog" aria-label="Prediction box" tabindex="0">
+    <div id="loginForm" aria-hidden="false">
+      <div class="main-title">Registration 🖇️</div>
+      <label for="passwordInput" class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;">Password</label>
+      <input id="passwordInput" placeholder="PASSWORD" type="password" aria-label="Password" />
+      <button id="loginBtn" type="button">LOGIN</button>
+    </div>
+
+    <div id="predictionUI" aria-hidden="true">
+      <div class="main-title">Registration 🖇️</div>
+      <div id="bsText" aria-live="polite">--</div>
+
+      <div class="timer-wrap">
+        <div id="timerDisplay">Syncing...</div>
+      </div>
+
+      <div class="loader" id="loadingOverlay" aria-hidden="true">
+        <div class="spinner" aria-hidden="true"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ====== Configuration & notes ======
+       - WARNING: Client-side "password" is not secure. Implement server-side auth for real use.
+       - The demo keeps a simple check for demonstration only.
+    */
+
+    (function(){
+      const PASS_DEMO = "123123"; // demo only; not secure
+      let isAuth = false;
+      const loginForm = document.getElementById('loginForm');
+      const predictionUI = document.getElementById('predictionUI');
+      const passwordInput = document.getElementById('passwordInput');
+      const loginBtn = document.getElementById('loginBtn');
+      const bsText = document.getElementById('bsText');
+      const loadingOverlay = document.getElementById('loadingOverlay');
+      const timerDisplay = document.getElementById('timerDisplay');
+      const box = document.getElementById('predictionBox');
+
+      // Safe speech helper
+      function speakSafe(text){
+        if(!isAuth) return;
+        if(!('speechSynthesis' in window)) return;
+        try{
+          const utter = new SpeechSynthesisUtterance(text);
+          utter.lang = 'bn-BD'; // Bengali Bangladesh voice preference
+          utter.pitch = 1.2;
+          utter.rate = 1.0;
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(utter);
+        }catch(e){
+          // Ignore speech errors
+          console.warn('speech error', e);
+        }
+      }
+
+      // Show/hide loader helper
+      function setLoading(on){
+        loadingOverlay.style.display = on ? 'flex' : 'none';
+        loadingOverlay.setAttribute('aria-hidden', String(!on));
+      }
+
+      // One-shot random "signal" fetch simulation
+      function getSignal(){
+        setLoading(true);
+        // simulate network delay
+        setTimeout(() => {
+          const res = Math.random() > 0.5 ? "BIG" : "SMALL";
+          bsText.innerText = res;
+          bsText.style.color = res === "BIG" ? "#00ffff" : "#ff3b3b";
+          speakSafe(res === "BIG" ? "বড়" : "ছোট"); // short Bengali words as example
+          setLoading(false);
+        }, 900);
+      }
+
+      // Reliable scheduling to exact 30s boundaries:
+      // - updateTimer runs every second to update countdown display
+      // - scheduleNext aligns to the next 30-second boundary and then runs getSignal and sets an interval of 30s
+      let timerInterval = null;
+      let boundaryInterval = null;
+
+      function updateTimerDisplay(){
+        const now = new Date();
+        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+        const bd = new Date(utc + (6 * 3600000)); // UTC+6
+        const sec = bd.getSeconds();
+        const rem = 30 - (sec % 30);
+        timerDisplay.innerText = `Next: 00:${String(rem).padStart(2,'0')}`;
+      }
+
+      function scheduleNext(){
+        // Clear previous intervals
+        if(boundaryInterval){ clearInterval(boundaryInterval); boundaryInterval = null; }
+        if(timerInterval){ clearInterval(timerInterval); timerInterval = null; }
+
+        // Start the 1s timer display
+        updateTimerDisplay();
+        timerInterval = setInterval(updateTimerDisplay, 1000);
+
+        // Compute ms until next 30-second boundary
+        const now = new Date();
+        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+        const bd = new Date(utc + (6 * 3600000));
+        const ms = bd.getMilliseconds();
+        const sec = bd.getSeconds();
+        const remSec = 30 - (sec % 30);
+        const msUntilBoundary = (remSec * 1000) - ms;
+
+        // Schedule first call at exact boundary, then repeat every 30s
+        setTimeout(() => {
+          getSignal();
+          boundaryInterval = setInterval(getSignal, 30000);
+        }, msUntilBoundary + 10); // +10ms guard to avoid racing
+      }
+
+      // Login handling (demo)
+      function unlockApp(){
+        const pass = passwordInput.value || '';
+        if(pass === PASS_DEMO){
+          isAuth = true;
+          loginForm.style.display = 'none';
+          predictionUI.style.display = 'block';
+          loginForm.setAttribute('aria-hidden','true');
+          predictionUI.setAttribute('aria-hidden','false');
+          speakSafe('স্বাগতম'); // 'Welcome' in Bengali
+          scheduleNext();
+          // immediately show one signal so user sees content sooner
+          getSignal();
+        } else {
+          // Provide a friendlier message
+          alert('Invalid password.');
+          // DO NOT redirect users to external messaging automatically without user consent.
+        }
+      }
+
+      // Keyboard: Enter triggers login
+      passwordInput.addEventListener('keydown', (ev) => {
+        if(ev.key === 'Enter') unlockApp();
+      });
+      loginBtn.addEventListener('click', unlockApp);
+
+      /* ====== Pointer-based drag (works with mouse & touch via Pointer Events) ====== */
+      let isDragging = false;
+      let dragOffsetX = 0, dragOffsetY = 0;
+
+      // Use pointerdown to capture pointer and allow dragging across targets
+      box.addEventListener('pointerdown', (e) => {
+        // Only start drag when primary button or touch
+        if(e.isPrimary === false) return;
+        isDragging = true;
+        box.setPointerCapture(e.pointerId);
+        const rect = box.getBoundingClientRect();
+        dragOffsetX = e.clientX - rect.left;
+        dragOffsetY = e.clientY - rect.top;
+        box.style.transition = 'none';
+      });
+
+      box.addEventListener('pointermove', (e) => {
+        if(!isDragging) return;
+        // Keep box within viewport
+        const maxX = window.innerWidth - box.offsetWidth - 8;
+        const maxY = window.innerHeight - box.offsetHeight - 8;
+        let left = e.clientX - dragOffsetX;
+        let top = e.clientY - dragOffsetY;
+        left = Math.max(8, Math.min(maxX, left));
+        top = Math.max(8, Math.min(maxY, top));
+        box.style.left = left + 'px';
+        box.style.top = top + 'px';
+        box.style.right = 'auto';
+        box.style.bottom = 'auto';
+      });
+
+      box.addEventListener('pointerup', (e) => {
+        if(e.isPrimary === false) return;
+        isDragging = false;
+        try{ box.releasePointerCapture(e.pointerId); }catch(e){}
+      });
+
+      box.addEventListener('pointercancel', () => { isDragging = false; });
+
+      // Expose minimal debug for dev console
+      window.__predictionDebug = {
+        getSignal, scheduleNext
+      };
+
+      // Initial accessibility focus
+      box.addEventListener('keydown', (e) => {
+        if(e.key === 'Escape' && isAuth){
+          // optionally collapse UI — example behavior: focus password (demo)
+          passwordInput.focus();
+        }
+      });
+
+    })();
+  </script>
+</body>
+</html>
